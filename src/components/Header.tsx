@@ -20,6 +20,7 @@ export default function Header() {
           ))}
         </div>
       </nav>
+      <hr className="mt-8 border-border" />
     </header>
   );
 }
