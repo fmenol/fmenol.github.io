@@ -1,6 +1,7 @@
 import { SOCIAL_LINKS } from '@/lib/constants';
 
 const icons: Record<string, string> = {
+  email: '[email]',
   scholar: '[scholar]',
   github: '[github]',
   x: '[x]',

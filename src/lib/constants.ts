@@ -1,6 +1,6 @@
 export const SITE_CONFIG = {
   name: 'Filippo Menolascina',
-  title: 'fmenol',
+  title: 'Filippo Menolascina',
   tagline: 'cybergenetics research. by filippo menolascina.',
   description: 'Personal website of Filippo Menolascina - cybergenetics research, synthetic biology, and computational approaches to biological systems.',
   url: 'https://fmenol.github.io',
@@ -8,6 +8,11 @@ export const SITE_CONFIG = {
 } as const;
 
 export const SOCIAL_LINKS = [
+  {
+    name: 'Email',
+    url: 'mailto:filippo.menolascina@ed.ac.uk',
+    icon: 'email',
+  },
   {
     name: 'Google Scholar',
     url: 'https://scholar.google.com/citations?user=YOUR_SCHOLAR_ID',
@@ -20,12 +25,12 @@ export const SOCIAL_LINKS = [
   },
   {
     name: 'X',
-    url: 'https://x.com/YOUR_X_HANDLE',
+    url: 'https://x.com/fmenolascina',
     icon: 'x',
   },
   {
     name: 'LinkedIn',
-    url: 'https://linkedin.com/in/YOUR_LINKEDIN',
+    url: 'https://www.linkedin.com/in/filippomenolascina/',
     icon: 'linkedin',
   },
 ] as const;
