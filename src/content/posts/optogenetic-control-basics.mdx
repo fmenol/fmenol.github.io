@@ -1,0 +1,62 @@
+---
+title: Optogenetic Control Basics
+date: 2024-02-20
+abstract: A primer on using light to control gene expression in living cells, covering the key tools and techniques that make cybergenetic experiments possible.
+tags:
+  - optogenetics
+  - gene-expression
+  - experimental-methods
+---
+
+## Light as a Control Input
+
+Optogenetics gives us a remarkable ability: controlling protein activity with light. For cybergenetics, this means we can adjust gene expression levels with millisecond precision and no chemical interference.
+
+The most common tools fall into two categories:
+
+### Blue Light Systems
+
+The **EL222** system from *Vibrio cholerae* has become a workhorse of cybergenetics:
+
+- Activates in response to blue light (~450nm)
+- Fast dynamics (seconds to minutes)
+- Reversible upon light removal
+
+```python
+# Light intensity to expression mapping (simplified)
+def expression_rate(light_intensity):
+    k_max = 0.5  # maximum transcription rate
+    K_d = 10     # half-saturation constant
+    n = 2        # Hill coefficient
+
+    return k_max * (light_intensity**n) / (K_d**n + light_intensity**n)
+```
+
+### Red/Far-Red Systems
+
+The **PhyB-PIF** system offers orthogonal control:
+
+- Red light (660nm) activates
+- Far-red light (730nm) deactivates
+- Useful for multiplexed control
+
+## Practical Considerations
+
+When setting up an optogenetic experiment, several factors matter:
+
+1. **Light delivery**: LEDs vs. projectors vs. confocal
+2. **Temporal resolution**: How fast can you update the signal?
+3. **Spatial resolution**: Single-cell vs. population control
+4. **Phototoxicity**: Blue light especially can damage cells
+
+## Integration with Microscopy
+
+The beauty of optogenetic control is that the same microscope used to image fluorescent reporters can deliver the control light. A typical setup:
+
+> "Observe, compute, actuate—all within the optical path of a standard fluorescence microscope."
+
+This tight integration enables feedback control at the single-cell level, tracking individual cells through generations and maintaining precise control despite division and growth.
+
+## What's Next
+
+In future posts, we'll dive into specific hardware configurations, control algorithms, and how to handle the inevitable experimental challenges that arise when trying to control living systems.

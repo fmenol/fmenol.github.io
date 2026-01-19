@@ -1,0 +1,74 @@
+---
+title: Modeling Gene Circuits
+date: 2024-03-10
+abstract: Mathematical models are essential for designing effective cybergenetic controllers. Here we explore the basics of modeling gene expression dynamics.
+tags:
+  - modeling
+  - differential-equations
+  - systems-biology
+---
+
+## Why Model?
+
+Before we can control a biological system, we need to understand its dynamics. Mathematical models serve two crucial purposes:
+
+1. **Prediction**: What will the cell do given a particular input?
+2. **Control design**: How should we adjust our input to achieve a goal?
+
+## The Central Dogma as ODEs
+
+Gene expression can be described by ordinary differential equations. For a simple gene:
+
+```
+dM/dt = α(u) - δ_m × M
+dP/dt = β × M - δ_p × P
+```
+
+Where:
+- `M` is mRNA concentration
+- `P` is protein concentration
+- `α(u)` is the transcription rate (our control input)
+- `β` is the translation rate
+- `δ_m`, `δ_p` are degradation rates
+
+## Hill Functions
+
+Transcriptional regulation often follows a sigmoidal response. The Hill function captures this:
+
+```python
+def hill_function(x, K, n):
+    """
+    x: inducer/repressor concentration
+    K: half-saturation constant
+    n: Hill coefficient (cooperativity)
+    """
+    return x**n / (K**n + x**n)
+```
+
+Higher Hill coefficients give sharper switching behavior—useful for building digital-like circuits, but harder to control smoothly.
+
+## Stochasticity
+
+At low molecule numbers, deterministic models break down. Gene expression is fundamentally stochastic:
+
+- **Intrinsic noise**: Random fluctuations in transcription/translation
+- **Extrinsic noise**: Cell-to-cell variability in cellular machinery
+
+For cybergenetics, noise is both a challenge (perturbing our setpoint) and an opportunity (feedback can suppress noise).
+
+## Parameter Estimation
+
+Real models need real parameters. Common approaches:
+
+1. **Literature values**: Start with published parameters
+2. **Step responses**: Apply input steps, fit dynamics
+3. **System identification**: Sophisticated input signals + ML
+
+> "All models are wrong, but some are useful."
+> — George Box
+
+The goal isn't a perfect model—it's a model good enough for control design.
+
+## Conclusion
+
+Mathematical modeling bridges theory and experiment in cybergenetics. In the next post, we'll see how these models inform the design of feedback controllers.

@@ -1,0 +1,43 @@
+---
+title: Hello Cybergenetics
+date: 2024-01-15
+abstract: An introduction to cybergenetics—the fusion of control theory and synthetic biology that enables real-time programming of living cells.
+tags:
+  - cybergenetics
+  - synthetic-biology
+  - control-theory
+---
+
+## What is Cybergenetics?
+
+Cybergenetics represents a paradigm shift in how we interact with biological systems. Instead of statically engineering genetic circuits and hoping they behave as expected, cybergenetics enables us to actively control cellular behavior in real-time using feedback loops.
+
+The core idea is deceptively simple: measure something about a cell (using fluorescent reporters), compare it to what we want, and adjust the cell's behavior accordingly (using optogenetic actuators).
+
+## The Feedback Loop
+
+A typical cybergenetic system consists of:
+
+1. **Sensors**: Fluorescent proteins that report on cellular state
+2. **Controllers**: Computational algorithms that process measurements
+3. **Actuators**: Light-responsive proteins that modulate gene expression
+
+```python
+# Pseudocode for a simple cybergenetic controller
+def control_loop(target, measurement):
+    error = target - measurement
+    control_signal = pid_controller.compute(error)
+    set_light_intensity(control_signal)
+```
+
+## Why It Matters
+
+Traditional synthetic biology suffers from a fundamental limitation: biological systems are inherently noisy and context-dependent. A circuit that works perfectly in the lab might fail in a bioreactor or inside a patient.
+
+Cybergenetics addresses this by closing the loop—continuously adapting to perturbations and maintaining the desired behavior despite noise and uncertainty.
+
+## Looking Forward
+
+The field is rapidly evolving. We're moving from single-cell control to population-level coordination, from simple setpoint tracking to complex dynamic programs. The goal is nothing less than turning cells into programmable machines that can execute arbitrary computations in response to their environment.
+
+Stay tuned for more posts on specific techniques, applications, and the mathematics behind cybergenetic control.
