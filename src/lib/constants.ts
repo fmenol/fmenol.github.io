@@ -15,7 +15,7 @@ export const SOCIAL_LINKS = [
   },
   {
     name: 'Google Scholar',
-    url: 'https://scholar.google.com/citations?user=YOUR_SCHOLAR_ID',
+    url: 'https://scholar.google.com/citations?user=oN2cRIoAAAAJ&hl=en',
     icon: 'scholar',
   },
   {
