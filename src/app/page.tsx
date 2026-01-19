@@ -1,4 +1,4 @@
-import AsciiArt from '@/components/AsciiArt';
+import RoboticArm from '@/components/RoboticArm';
 import ProfileLinks from '@/components/ProfileLinks';
 import PostList from '@/components/PostList';
 import { SITE_CONFIG } from '@/lib/constants';
@@ -9,9 +9,9 @@ export default function HomePage() {
 
   return (
     <div className="space-y-12">
-      {/* ASCII Art */}
+      {/* Animated Robotic Arm */}
       <section className="flex justify-center">
-        <AsciiArt />
+        <RoboticArm />
       </section>
 
       {/* Tagline */}
