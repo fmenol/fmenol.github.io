@@ -5,7 +5,7 @@ export default function Header() {
   return (
     <header className="mb-12">
       <nav className="flex items-center justify-between">
-        <Link href="/" className="text-accent hover:text-foreground transition-colors">
+        <Link href="/" className="text-foreground hover:text-link transition-colors font-medium">
           {SITE_CONFIG.title}
         </Link>
         <div className="flex gap-6">

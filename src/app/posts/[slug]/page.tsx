@@ -47,7 +47,7 @@ export default async function PostPage({ params }: PageProps) {
   return (
     <article>
       <PostHeader post={post} />
-      <div className="prose prose-invert max-w-none">
+      <div className="prose max-w-none">
         <MDXRemote
           source={post.content}
           components={mdxComponents}
@@ -58,7 +58,7 @@ export default async function PostPage({ params }: PageProps) {
                 [
                   rehypePrettyCode,
                   {
-                    theme: 'github-dark',
+                    theme: 'github-light',
                     keepBackground: false,
                   },
                 ],

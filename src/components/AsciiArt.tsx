@@ -16,7 +16,7 @@ export default function AsciiArt() {
   `;
 
   return (
-    <pre className="text-[10px] sm:text-xs leading-tight text-muted overflow-x-auto whitespace-pre">
+    <pre className="text-[10px] sm:text-xs leading-tight text-foreground overflow-x-auto whitespace-pre">
       {art}
     </pre>
   );

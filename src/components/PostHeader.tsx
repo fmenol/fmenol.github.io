@@ -16,7 +16,7 @@ export default function PostHeader({ post }: PostHeaderProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Metadata column */}
         <div className="space-y-4">
-          <h1 className="text-xl text-accent">{post.title}</h1>
+          <h1 className="text-xl text-foreground">{post.title}</h1>
           <div className="text-sm text-muted space-y-1">
             <p>{formattedDate}</p>
             {post.tags && post.tags.length > 0 && (

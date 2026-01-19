@@ -18,12 +18,12 @@ export default function PostList({ posts }: PostListProps) {
         <li key={post.slug} className="group">
           <Link
             href={`/posts/${post.slug}`}
-            className="flex items-baseline gap-4 text-muted hover:text-foreground transition-colors"
+            className="flex items-baseline gap-4 hover:text-link transition-colors"
           >
-            <span className="text-xs tabular-nums">
+            <span className="text-xs tabular-nums text-muted">
               {formatPostDate(post.date)}
             </span>
-            <span className="group-hover:text-accent transition-colors">
+            <span className="group-hover:text-link transition-colors">
               {formatPostTitle(post.title)}
             </span>
           </Link>

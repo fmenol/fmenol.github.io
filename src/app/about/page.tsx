@@ -10,7 +10,7 @@ export default function AboutPage() {
   return (
     <div className="space-y-12">
       <section>
-        <h1 className="text-xl text-accent mb-6">about</h1>
+        <h1 className="text-xl text-foreground mb-6">about</h1>
         <div className="space-y-4 text-muted leading-relaxed">
           <p>
             I&apos;m Filippo Menolascina, a researcher working at the intersection
@@ -61,7 +61,7 @@ export default function AboutPage() {
         <h2 className="text-xs uppercase tracking-wide text-muted mb-6">contact</h2>
         <p className="text-muted">
           Feel free to reach out via{' '}
-          <a href="mailto:your.email@example.com" className="text-foreground hover:text-accent underline">
+          <a href="mailto:your.email@example.com" className="text-link hover:underline">
             email
           </a>{' '}
           or connect on{' '}
@@ -69,7 +69,7 @@ export default function AboutPage() {
             href="https://github.com/fmenol"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-foreground hover:text-accent underline"
+            className="text-link hover:underline"
           >
             GitHub
           </a>.

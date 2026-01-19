@@ -18,7 +18,7 @@ function Blockquote({ children }: { children: React.ReactNode }) {
 
 function InlineCode({ children }: { children: React.ReactNode }) {
   return (
-    <code className="bg-[#1a1a1a] px-1.5 py-0.5 rounded text-sm">
+    <code className="bg-[#e6e5da] px-1.5 py-0.5 rounded text-sm">
       {children}
     </code>
   );
@@ -31,7 +31,7 @@ function Anchor({ href, children }: { href?: string; children: React.ReactNode }
       href={href}
       target={isExternal ? '_blank' : undefined}
       rel={isExternal ? 'noopener noreferrer' : undefined}
-      className="text-accent underline underline-offset-2 hover:text-foreground"
+      className="text-link underline underline-offset-2 hover:text-foreground"
     >
       {children}
     </a>
@@ -39,15 +39,15 @@ function Anchor({ href, children }: { href?: string; children: React.ReactNode }
 }
 
 function Heading1({ children }: { children: React.ReactNode }) {
-  return <h1 className="text-xl text-accent mt-8 mb-4">{children}</h1>;
+  return <h1 className="text-xl text-foreground mt-8 mb-4">{children}</h1>;
 }
 
 function Heading2({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-lg text-accent mt-6 mb-3">{children}</h2>;
+  return <h2 className="text-lg text-foreground mt-6 mb-3">{children}</h2>;
 }
 
 function Heading3({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-base text-accent mt-4 mb-2">{children}</h3>;
+  return <h3 className="text-base text-foreground mt-4 mb-2">{children}</h3>;
 }
 
 function Paragraph({ children }: { children: React.ReactNode }) {
@@ -63,7 +63,7 @@ function OrderedList({ children }: { children: React.ReactNode }) {
 }
 
 function ListItem({ children }: { children: React.ReactNode }) {
-  return <li className="text-muted">{children}</li>;
+  return <li>{children}</li>;
 }
 
 function HorizontalRule() {
