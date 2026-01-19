@@ -1,4 +1,4 @@
-import RoboticArm from '@/components/RoboticArm';
+import RoboticArm3D from '@/components/RoboticArm3D';
 import ProfileLinks from '@/components/ProfileLinks';
 import PostList from '@/components/PostList';
 import { SITE_CONFIG } from '@/lib/constants';
@@ -9,9 +9,9 @@ export default function HomePage() {
 
   return (
     <div className="space-y-12">
-      {/* Animated Robotic Arm */}
+      {/* Animated 3D Robotic Arm */}
       <section className="flex justify-center">
-        <RoboticArm />
+        <RoboticArm3D />
       </section>
 
       {/* Tagline */}
