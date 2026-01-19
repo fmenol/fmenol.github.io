@@ -43,7 +43,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={firaCode.variable}>
       <body className="min-h-screen bg-background font-mono">
-        <div className="min-h-screen bg-paper max-w-3xl mx-auto px-6 py-8 shadow-lg">
+        <div className="min-h-screen bg-paper max-w-[72rem] mx-auto px-6 py-8 shadow-lg">
           <Header />
           <main>{children}</main>
           <footer className="mt-16 pt-8 border-t border-border text-muted text-sm">

@@ -51,7 +51,7 @@ function Heading3({ children }: { children: React.ReactNode }) {
 }
 
 function Paragraph({ children }: { children: React.ReactNode }) {
-  return <p className="my-4 leading-relaxed">{children}</p>;
+  return <p className="my-3 leading-snug">{children}</p>;
 }
 
 function UnorderedList({ children }: { children: React.ReactNode }) {
