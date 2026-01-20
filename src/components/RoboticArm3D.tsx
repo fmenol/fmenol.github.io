@@ -265,7 +265,7 @@ export default function RoboticArm3D() {
         {frames[frame]}
       </pre>
       <p className="text-muted text-xs tracking-wider">
-        c y b e r g e n e t i c s
+        A I  x  B i o  x  V C
       </p>
     </div>
   );
