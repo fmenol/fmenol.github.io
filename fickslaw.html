@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fick's First Law: Diffusion Simulation</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0d1117; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; }
+        
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            max-width: 350px;
+        }
+
+        h1 { font-size: 1.2rem; margin-top: 0; color: #58a6ff; }
+        p { font-size: 0.9rem; line-height: 1.4; color: #c9d1d9; }
+
+        #next-btn {
+            background-color: #238636;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+        #next-btn:hover { background-color: #2ea043; }
+        #next-btn:disabled { background-color: #444; cursor: not-allowed; }
+
+        /* Chart Container */
+        #chart-wrapper {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 400px;
+            height: 250px;
+            background: rgba(0,0,0,0.85);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            display: none; /* Hidden initially */
+        }
+
+        /* Labels floating in 3D space */
+        .label {
+            position: absolute;
+            color: #ffffff;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 14px;
+            text-shadow: 0 0 4px #000;
+            pointer-events: none;
+            user-select: none;
+            text-align: center;
+        }
+        .flux-value {
+            font-size: 18px;
+            color: #58a6ff;
+            background: rgba(0,0,0,0.6);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        .counter-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div id="ui-container">
+        <h1>Fick's First Law</h1>
+        <div id="instruction-text">
+            <p><strong>Step 1: Observation</strong><br>
+            Observe the particles in the microfluidic channel. They move randomly (Brownian motion), but there is a concentration gradient: higher density on the left, fading to zero on the far right.</p>
+        </div>
+        <button id="next-btn">Next Step</button>
+    </div>
+
+    <div id="chart-wrapper">
+        <canvas id="fluxChart"></canvas>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="label-left" class="label"><div class="counter-box"><span style="color:#aaa">Flux L</span><span id="val-left" class="flux-value">0</span></div></div>
+    <div id="label-center" class="label"><div class="counter-box"><span style="color:#aaa">Flux C</span><span id="val-center" class="flux-value">0</span></div></div>
+    <div id="label-right" class="label"><div class="counter-box"><span style="color:#aaa">Flux R</span><span id="val-right" class="flux-value">0</span></div></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Configuration ---
+        const PARTICLE_COUNT = 1200; // Increased for longer channel
+        const CHANNEL_WIDTH = 80; // 100% longer
+        const CHANNEL_HEIGHT = 10;
+        const CHANNEL_DEPTH = 10;
+        const PARTICLE_SPEED = 0.15;
+        
+        // Simulation State
+        let step = 0; // 0: Init, 1: One Plane, 2: Three Planes + Plot
+        let time = 0;
+
+        // --- Three.js Setup ---
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x0d1117, 0.015); // Adjusted fog for larger scene
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Adjusted camera position for longer channel
+        camera.position.set(0, 20, 70);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.target.set(0, 0, 0);
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        // --- The Channel (Clean Wireframe) ---
+        // Use EdgesGeometry to avoid diagonal lines
+        const geometryBox = new THREE.BoxGeometry(CHANNEL_WIDTH, CHANNEL_HEIGHT, CHANNEL_DEPTH);
+        const edges = new THREE.EdgesGeometry(geometryBox);
+        const channel = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x58a6ff, opacity: 0.5, transparent: true }));
+        scene.add(channel);
+
+        // --- Measurement Planes (Square) ---
+        // Plane geometry spanning depth and height
+        const planeGeo = new THREE.PlaneGeometry(CHANNEL_DEPTH, CHANNEL_HEIGHT);
+        const planeMat = new THREE.MeshBasicMaterial({ 
+            color: 0xffffff, 
+            side: THREE.DoubleSide, 
+            transparent: true, 
+            opacity: 0.15 
+        });
+
+        // Center Plane
+        const planeCenter = new THREE.Mesh(planeGeo, planeMat);
+        planeCenter.rotation.y = Math.PI / 2; // Rotate to face x-axis
+        planeCenter.visible = false;
+        scene.add(planeCenter);
+
+        // Left Plane
+        const planeLeft = planeCenter.clone();
+        planeLeft.position.x = -CHANNEL_WIDTH / 3;
+        planeLeft.visible = false;
+        scene.add(planeLeft);
+
+        // Right Plane
+        const planeRight = planeCenter.clone();
+        planeRight.position.x = CHANNEL_WIDTH / 3;
+        planeRight.visible = false;
+        scene.add(planeRight);
+
+        // --- Particle System ---
+        const particleGeo = new THREE.SphereGeometry(0.25, 8, 8);
+        const particleMat = new THREE.MeshPhongMaterial({ color: 0xffffff });
+        const particlesMesh = new THREE.InstancedMesh(particleGeo, particleMat, PARTICLE_COUNT);
+        scene.add(particlesMesh);
+
+        // Data arrays
+        const positions = [];
+        const glowTimers = new Float32Array(PARTICLE_COUNT).fill(0);
+        const glowType = new Int8Array(PARTICLE_COUNT).fill(0); // 1 = Green, -1 = Red
+        const dummyObj = new THREE.Object3D();
+        const colorBlue = new THREE.Color(0x2f81f7);
+        const colorGreen = new THREE.Color(0x3fb950);
+        const colorRed = new THREE.Color(0xf85149);
+
+        // Initialize Particles (Linear Gradient to 0 at right)
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            let x, valid = false;
+            while (!valid) {
+                x = (Math.random() - 0.5) * CHANNEL_WIDTH;
+                // Probability is 1 at x = -WIDTH/2, and 0 at x = +WIDTH/2
+                const prob = (CHANNEL_WIDTH / 2 - x) / CHANNEL_WIDTH;
+                if (Math.random() < prob) valid = true;
+            }
+
+            const y = (Math.random() - 0.5) * CHANNEL_HEIGHT;
+            const z = (Math.random() - 0.5) * CHANNEL_DEPTH;
+            
+            positions.push(new THREE.Vector3(x, y, z));
+            
+            dummyObj.position.set(x, y, z);
+            dummyObj.updateMatrix();
+            particlesMesh.setMatrixAt(i, dummyObj.matrix);
+            particlesMesh.setColorAt(i, colorBlue);
+        }
+
+        // --- Flux Logic & Animation Variables ---
+        let countC = 0;
+        let plotValues = { l: 2, c: 1, r: 0.2 };
+        const targetValues = { l: 10, c: 5, r: 1 };
+
+        // --- Chart.js Setup ---
+        const ctx = document.getElementById('fluxChart').getContext('2d');
+        const fluxChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Theoretical Flux',
+                        data: [
+                            {x: -CHANNEL_WIDTH/3, y: 11},
+                            {x: CHANNEL_WIDTH/3, y: 0}
+                        ],
+                        showLine: true,
+                        borderColor: 'rgba(255, 255, 255, 0.5)',
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Measured Flux J',
+                        data: [
+                            {x: -CHANNEL_WIDTH/3, y: 0},
+                            {x: 0, y: 0},
+                            {x: CHANNEL_WIDTH/3, y: 0}
+                        ],
+                        backgroundColor: ['#d2a8ff', '#d2a8ff', '#d2a8ff'],
+                        pointRadius: 8,
+                        pointHoverRadius: 10
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom',
+                        title: { display: true, text: 'Position (x)', color: '#aaa' },
+                        grid: { color: '#333' },
+                        ticks: { color: '#aaa' },
+                        min: -CHANNEL_WIDTH/2,
+                        max: CHANNEL_WIDTH/2
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 12,
+                        title: { display: true, text: 'Flux (J)', color: '#aaa' },
+                        grid: { color: '#333' },
+                        ticks: { color: '#aaa' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: 'white' } }
+                }
+            }
+        });
+
+        // --- Interaction Logic ---
+        const nextBtn = document.getElementById('next-btn');
+        const instructionText = document.getElementById('instruction-text');
+        const labels = {
+            l: document.getElementById('label-left'),
+            c: document.getElementById('label-center'),
+            r: document.getElementById('label-right'),
+            valL: document.getElementById('val-left'),
+            valC: document.getElementById('val-center'),
+            valR: document.getElementById('val-right'),
+        };
+
+        labels.l.style.display = 'none';
+        labels.c.style.display = 'none';
+        labels.r.style.display = 'none';
+
+        nextBtn.addEventListener('click', () => {
+            step++;
+            if (step === 1) {
+                instructionText.innerHTML = `
+                    <p><strong>Step 2: Measuring Flux</strong><br>
+                    A square plane is placed in the center. We now count particles crossing it.<br>
+                    <span style="color:#3fb950">Green Glow</span>: Crossing Right-to-Left (+ Flux)<br>
+                    <span style="color:#f85149">Red Glow</span>: Crossing Left-to-Right (- Flux)</p>
+                `;
+                planeCenter.visible = true;
+                labels.c.style.display = 'block';
+            } else if (step === 2) {
+                instructionText.innerHTML = `
+                    <p><strong>Step 3: Fick's Law Validation</strong><br>
+                    We add planes to the left and right. The plot below shows the <strong>Net Flux (J)</strong> at each position.<br>
+                    Notice how the flux is higher on the left (steeper gradient) and lower on the right, matching Fick's Law.</p>
+                `;
+                planeLeft.visible = true;
+                planeRight.visible = true;
+                labels.l.style.display = 'block';
+                labels.r.style.display = 'block';
+                document.getElementById('chart-wrapper').style.display = 'block';
+                nextBtn.disabled = true;
+                nextBtn.textContent = "Simulation Running";
+            }
+        });
+
+        // --- Main Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            controls.update();
+            time += 0.01;
+
+            // 1. Physics Update
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const pos = positions[i];
+                const oldX = pos.x;
+
+                // Brownian Motion
+                pos.x += (Math.random() - 0.5) * PARTICLE_SPEED;
+                pos.y += (Math.random() - 0.5) * PARTICLE_SPEED;
+                pos.z += (Math.random() - 0.5) * PARTICLE_SPEED;
+
+                // Wall Collisions
+                if (pos.x > CHANNEL_WIDTH/2) pos.x = CHANNEL_WIDTH/2 - 0.1;
+                if (pos.x < -CHANNEL_WIDTH/2) pos.x = -CHANNEL_WIDTH/2 + 0.1;
+                if (pos.y > CHANNEL_HEIGHT/2) pos.y = CHANNEL_HEIGHT/2 - 0.1;
+                if (pos.y < -CHANNEL_HEIGHT/2) pos.y = -CHANNEL_HEIGHT/2 + 0.1;
+                if (pos.z > CHANNEL_DEPTH/2) pos.z = CHANNEL_DEPTH/2 - 0.1;
+                if (pos.z < -CHANNEL_DEPTH/2) pos.z = -CHANNEL_DEPTH/2 + 0.1;
+
+                // Crossing Detection
+                if (step >= 1) checkCrossing(i, oldX, pos.x, 0, 'c');
+                if (step >= 2) {
+                    checkCrossing(i, oldX, pos.x, -CHANNEL_WIDTH/3, 'l');
+                    checkCrossing(i, oldX, pos.x, CHANNEL_WIDTH/3, 'r');
+                }
+
+                // Update Visuals
+                dummyObj.position.copy(pos);
+                dummyObj.updateMatrix();
+                particlesMesh.setMatrixAt(i, dummyObj.matrix);
+
+                // Handle Glow Colors
+                if (glowTimers[i] > 0) {
+                    glowTimers[i]--;
+                    particlesMesh.setColorAt(i, glowType[i] === 1 ? colorGreen : colorRed);
+                } else {
+                    particlesMesh.setColorAt(i, colorBlue);
+                }
+            }
+            particlesMesh.instanceMatrix.needsUpdate = true;
+            particlesMesh.instanceColor.needsUpdate = true;
+
+            // 2. Update Labels Position
+            // Position labels above the center of each plane
+            updateLabelPosition(new THREE.Vector3(-CHANNEL_WIDTH/3, CHANNEL_HEIGHT/2 + 3, 0), labels.l);
+            updateLabelPosition(new THREE.Vector3(0, CHANNEL_HEIGHT/2 + 3, 0), labels.c);
+            updateLabelPosition(new THREE.Vector3(CHANNEL_WIDTH/3, CHANNEL_HEIGHT/2 + 3, 0), labels.r);
+
+            // 3. Update Plot Data (Step 2 Only)
+            if (step === 2) {
+                plotValues.l += (targetValues.l - plotValues.l) * 0.01;
+                plotValues.c += (targetValues.c - plotValues.c) * 0.01;
+                plotValues.r += (targetValues.r - plotValues.r) * 0.01;
+
+                fluxChart.data.datasets[1].data[0].y = plotValues.l;
+                fluxChart.data.datasets[1].data[1].y = plotValues.c;
+                fluxChart.data.datasets[1].data[2].y = plotValues.r;
+                fluxChart.update();
+
+                labels.valL.innerText = plotValues.l.toFixed(1);
+                labels.valC.innerText = plotValues.c.toFixed(1);
+                labels.valR.innerText = plotValues.r.toFixed(1);
+            } else if (step === 1) {
+                 labels.valC.innerText = countC;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function checkCrossing(index, oldX, newX, planeX, id) {
+            if ((oldX > planeX && newX < planeX) || (oldX < planeX && newX > planeX)) {
+                let isRightToLeft = (oldX > planeX && newX < planeX);
+                if (isRightToLeft) {
+                    glowTimers[index] = 20;
+                    glowType[index] = 1;
+                    if(id === 'c') countC++; 
+                } else {
+                    glowTimers[index] = 20;
+                    glowType[index] = -1;
+                    if(id === 'c') countC--;
+                }
+            }
+        }
+
+        function updateLabelPosition(pos3D, labelElem) {
+            if (labelElem.style.display === 'none') return;
+            pos3D.project(camera);
+            const x = (pos3D.x * .5 + .5) * window.innerWidth;
+            const y = (-(pos3D.y * .5) + .5) * window.innerHeight;
+            labelElem.style.left = `${x}px`;
+            labelElem.style.top = `${y}px`;
+            labelElem.style.transform = `translate(-50%, -50%)`;
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

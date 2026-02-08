@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fick's 2nd Law: Clean Water</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            color: white;
+            background: rgba(30, 30, 30, 0.9);
+            backdrop-filter: blur(8px);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #444;
+            width: 350px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        h1 { margin: 0 0 5px 0; font-size: 1.4rem; letter-spacing: 1px; color: #4facfe; }
+        h2 { margin: 0 0 15px 0; font-size: 0.9rem; font-weight: 400; color: #aaa; }
+        
+        .math-box {
+            background: rgba(255,255,255,0.05);
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            margin-bottom: 20px;
+            border: 1px solid #555;
+            font-size: 1.1rem;
+        }
+
+        button {
+            background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(0, 114, 255, 0.3);
+        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 114, 255, 0.5); }
+        button:active { transform: translateY(0); }
+
+        /* Chart Container */
+        #chart-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 500px;
+            height: 300px;
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #444;
+            border-radius: 12px;
+            padding: 15px;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <h1>Fick's 2nd Law</h1>
+        <h2>Radial Diffusion (Spot)</h2>
+        
+        <div class="math-box">
+            C(r,t) = [Q / 4πDt] · exp(-r² / 4Dt)
+        </div>
+        
+        <p style="font-size: 0.9rem; color: #ddd;">
+            <strong>Scenario:</strong> A bright blue droplet falls into a basin of water. Upon impact, it spreads radially according to Fick's Second Law.
+        </p>
+
+        <button id="drop-btn">Reset / Drop Dye</button>
+    </div>
+
+    <div id="chart-container">
+        <canvas id="profileChart"></canvas>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Configuration ---
+        const D = 0.5; // Diffusivity
+        const Q = 20.0; // Total Amount of Dye
+        const BASIN_SIZE = 40;
+        
+        // State
+        let time = 0;
+        let isDiffusing = false;
+        let dropPhase = true; 
+
+        // --- 1. Scene Setup ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a); // Dark Gray Background
+        scene.fog = new THREE.FogExp2(0x1a1a1a, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 40, 50); 
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true; 
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.maxPolarAngle = Math.PI / 2 - 0.1; 
+
+        // --- 2. Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const spotLight = new THREE.SpotLight(0x4facfe, 1000);
+        spotLight.position.set(20, 50, 20);
+        spotLight.angle = Math.PI / 6;
+        spotLight.penumbra = 0.5;
+        spotLight.castShadow = true;
+        scene.add(spotLight);
+        
+        const rimLight = new THREE.DirectionalLight(0x0072ff, 1.5);
+        rimLight.position.set(-20, 10, -20);
+        scene.add(rimLight);
+
+        // --- 3. The Water Basin ---
+        
+        // A. The Container (Tray)
+        const trayGeo = new THREE.BoxGeometry(BASIN_SIZE + 2, 2, BASIN_SIZE + 2);
+        const trayMat = new THREE.MeshStandardMaterial({ 
+            color: 0x333333, 
+            roughness: 0.4,
+            metalness: 0.2
+        });
+        const trayMesh = new THREE.Mesh(trayGeo, trayMat);
+        trayMesh.position.y = -1.1; 
+        trayMesh.receiveShadow = true;
+        scene.add(trayMesh);
+
+        // B. The Water Surface (Shader)
+        const vertexShader = `
+            varying vec2 vUv;
+            varying vec3 vPos;
+            void main() {
+                vUv = uv;
+                vPos = position; 
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+
+        const fragmentShader = `
+            uniform float uTime;
+            uniform float uD;
+            uniform float uQ;
+            varying vec2 vUv;
+            varying vec3 vPos;
+
+            void main() {
+                // Radial distance from center
+                float r = length(vPos.xy);
+                
+                // Avoid division by zero at t=0
+                float t = max(uTime, 0.001);
+                
+                // Gaussian Equation
+                float prefactor = uQ / (4.0 * 3.14159 * uD * t);
+                float exponent = -(r * r) / (4.0 * uD * t);
+                float concentration = prefactor * exp(exponent);
+
+                // Colors
+                // 1. Water Base Color (Deep Blue)
+                vec3 waterColor = vec3(0.05, 0.12, 0.22);
+                
+                // 2. Dye Color (Bright Cyan)
+                vec3 dyeColor = vec3(0.1, 0.8, 1.0);
+                
+                // Mix based on concentration
+                float mixFactor = smoothstep(0.0, 1.5, concentration * 3.0);
+                vec3 finalColor = mix(waterColor, dyeColor, mixFactor);
+                
+                // Specular highlight (fake reflection from light source)
+                // This keeps the water looking liquid without the grid lines
+                float dist = distance(vUv, vec2(0.6, 0.6)); // Light direction bias
+                float highlight = smoothstep(0.4, 0.0, dist) * 0.15;
+                finalColor += highlight;
+
+                gl_FragColor = vec4(finalColor, 0.95);
+            }
+        `;
+
+        const waterGeo = new THREE.PlaneGeometry(BASIN_SIZE, BASIN_SIZE, 1, 1);
+        const waterUniforms = {
+            uTime: { value: 0.0 },
+            uD: { value: D },
+            uQ: { value: Q }
+        };
+        
+        const waterMat = new THREE.ShaderMaterial({
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader,
+            uniforms: waterUniforms,
+            side: THREE.DoubleSide,
+            transparent: true
+        });
+
+        const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+        waterMesh.rotation.x = -Math.PI / 2; // Flat
+        scene.add(waterMesh);
+
+        // --- 4. The Droplet ---
+        const dropGeo = new THREE.SphereGeometry(1.2, 32, 32);
+        const dropMat = new THREE.MeshStandardMaterial({ 
+            color: 0x00ffff, 
+            emissive: 0x0088ff,
+            emissiveIntensity: 0.5,
+            roughness: 0.0,
+            metalness: 0.1
+        });
+        const dropMesh = new THREE.Mesh(dropGeo, dropMat);
+        dropMesh.position.set(0, 25, 0); 
+        dropMesh.castShadow = true;
+        scene.add(dropMesh);
+
+
+        // --- 5. Chart.js Setup ---
+        const ctx = document.getElementById('profileChart').getContext('2d');
+        
+        const profileChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        type: 'line',
+                        label: 'Analytical Solution',
+                        data: [],
+                        borderColor: '#4facfe',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.4,
+                        showLine: true
+                    },
+                    {
+                        type: 'scatter',
+                        label: 'Simulated Sensors',
+                        data: [],
+                        backgroundColor: '#ff4d4d', 
+                        pointRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        min: 0,
+                        max: 15,
+                        title: { display: true, text: 'Radial Distance (r)', color: '#aaa' },
+                        grid: { color: '#444' },
+                        ticks: { color: '#aaa' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 1.0,
+                        title: { display: true, text: 'Concentration [C]', color: '#aaa' },
+                        grid: { color: '#444' },
+                        ticks: { color: '#aaa' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#ddd' } }
+                }
+            }
+        });
+
+        // --- 6. Animation Logic ---
+        
+        function resetSimulation() {
+            dropPhase = true;
+            isDiffusing = false;
+            time = 0;
+            waterUniforms.uTime.value = 0;
+            
+            // Reset Droplet
+            dropMesh.visible = true;
+            dropMesh.position.set(0, 30, 0); 
+            dropMesh.scale.set(1, 1, 1);
+        }
+
+        function gaussian(r, t) {
+            if (t <= 0.001) return 0;
+            const pre = Q / (4 * Math.PI * D * t);
+            const exp = -Math.pow(r, 2) / (4 * D * t);
+            return pre * Math.exp(exp);
+        }
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+
+            // A. Drop Phase
+            if (dropPhase) {
+                dropMesh.position.y -= dt * 15; 
+                
+                if (dropMesh.position.y <= 0) {
+                    dropPhase = false;
+                    isDiffusing = true;
+                    dropMesh.visible = false;
+                    time = 0.05; 
+                }
+            } 
+            // B. Diffusion Phase
+            else if (isDiffusing) {
+                time += dt;
+                waterUniforms.uTime.value = time;
+            }
+
+            // Chart Update
+            if (isDiffusing) {
+                const theoryData = [];
+                const expData = [];
+                
+                for (let r = 0; r <= 15; r += 0.5) {
+                    const exactVal = gaussian(r, time);
+                    theoryData.push({x: r, y: exactVal});
+
+                    if (Number.isInteger(r)) {
+                        const noise = (Math.random() - 0.5) * 0.1 * exactVal;
+                        expData.push({x: r, y: exactVal + noise});
+                    }
+                }
+                
+                profileChart.data.datasets[0].data = theoryData;
+                profileChart.data.datasets[1].data = expData;
+                profileChart.update('none');
+            } else {
+                 profileChart.data.datasets[0].data = [];
+                 profileChart.data.datasets[1].data = [];
+                 profileChart.update('none');
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // --- Interaction ---
+        document.getElementById('drop-btn').addEventListener('click', resetSimulation);
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start
+        animate();
+
+    </script>
+</body>
+</html>

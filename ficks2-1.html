@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fick's 2nd Law: Fast Simulation</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0d1117; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; }
+        
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            max-width: 320px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        h1 { font-size: 1.1rem; margin-top: 0; color: #58a6ff; margin-bottom: 10px; }
+        h2 { font-size: 0.9rem; color: #8b949e; margin-bottom: 5px; font-weight: normal; }
+        p { font-size: 0.85rem; line-height: 1.4; color: #c9d1d9; margin-bottom: 15px; }
+
+        .btn {
+            background-color: #238636;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 5px;
+            transition: background 0.2s;
+        }
+        .btn:hover { background-color: #2ea043; }
+        .btn-reset { background-color: #da3633; margin-top: 10px; }
+        .btn-reset:hover { background-color: #f85149; }
+
+        /* Chart Container */
+        #chart-wrapper {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 450px;
+            height: 280px;
+            background: rgba(0,0,0,0.9);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+        }
+
+        /* 3D Labels */
+        .label {
+            position: absolute;
+            color: #ffffff;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 14px;
+            text-shadow: 0 0 4px #000;
+            pointer-events: none;
+            user-select: none;
+            opacity: 0.8;
+        }
+        
+        .math-display {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            background: rgba(255,255,255,0.1);
+            padding: 5px;
+            border-radius: 4px;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div id="ui-container">
+        <h1>Fick's 2nd Law</h1>
+        <h2>Constant Surface Concentration</h2>
+        
+        <div class="math-display">
+            N(x,t) = N₀ erfc(x / 2√Dt)
+        </div>
+
+        <div id="instruction-text">
+            <p><strong>Speed: 10x</strong><br>
+            The simulation speed has been increased. The particles update 10 times per frame to show the diffusion process rapidly.</p>
+        </div>
+        
+        <button id="reset-btn" class="btn btn-reset">Reset / Start Over</button>
+    </div>
+
+    <div id="chart-wrapper">
+        <canvas id="diffusionChart"></canvas>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="label-source" class="label">SOURCE (N₀)</div>
+    <div id="label-wafer" class="label">DIFFUSION ZONE (x > 0)</div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Configuration ---
+        const CHANNEL_LENGTH = 80;
+        const RESERVOIR_LENGTH = 20; 
+        const CHANNEL_HEIGHT = 15;
+        const CHANNEL_DEPTH = 15;
+        
+        // Physics Params
+        const PARTICLE_COUNT = 3000; 
+        const DIFFUSION_COEFF = 0.5;
+        const PARTICLE_SPEED_BASE = 0.5; // Slight bump in base speed
+        const PHYSICS_STEPS = 10; // 10 updates per frame = 10x speed
+        
+        // Simulation State
+        let simTime = 0;
+        let isRunning = true;
+
+        // --- Three.js Setup ---
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x0d1117, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(20, 30, 90);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.target.set(10, 0, 0);
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(0, 50, 20);
+        scene.add(dirLight);
+
+        // --- Environment ---
+        const sourceGeo = new THREE.BoxGeometry(RESERVOIR_LENGTH, CHANNEL_HEIGHT, CHANNEL_DEPTH);
+        const sourceMat = new THREE.MeshBasicMaterial({ color: 0x1f6feb, opacity: 0.1, transparent: true, side: THREE.BackSide });
+        const sourceBox = new THREE.Mesh(sourceGeo, sourceMat);
+        sourceBox.position.set(-RESERVOIR_LENGTH/2, 0, 0);
+        scene.add(sourceBox);
+
+        const channelGeo = new THREE.BoxGeometry(CHANNEL_LENGTH, CHANNEL_HEIGHT, CHANNEL_DEPTH);
+        const edges = new THREE.EdgesGeometry(channelGeo);
+        const channelLines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x58a6ff, opacity: 0.3, transparent: true }));
+        channelLines.position.set(CHANNEL_LENGTH/2, 0, 0);
+        scene.add(channelLines);
+
+        const planeGeo = new THREE.PlaneGeometry(CHANNEL_DEPTH, CHANNEL_HEIGHT);
+        const planeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.2 });
+        const interfacePlane = new THREE.Mesh(planeGeo, planeMat);
+        interfacePlane.rotation.y = Math.PI / 2;
+        interfacePlane.position.set(0, 0, 0);
+        scene.add(interfacePlane);
+
+        // --- Particles ---
+        const particleGeo = new THREE.SphereGeometry(0.2, 4, 4); 
+        const particleMat = new THREE.MeshBasicMaterial({ color: 0x2f81f7 }); 
+        const particlesMesh = new THREE.InstancedMesh(particleGeo, particleMat, PARTICLE_COUNT);
+        scene.add(particlesMesh);
+
+        const positions = []; 
+        const dummyObj = new THREE.Object3D();
+
+        function initParticles() {
+            positions.length = 0;
+            simTime = 0;
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const x = (Math.random() - 1.0) * RESERVOIR_LENGTH; 
+                const y = (Math.random() - 0.5) * CHANNEL_HEIGHT;
+                const z = (Math.random() - 0.5) * CHANNEL_DEPTH;
+                positions.push(new THREE.Vector3(x, y, z));
+                dummyObj.position.set(x, y, z);
+                dummyObj.updateMatrix();
+                particlesMesh.setMatrixAt(i, dummyObj.matrix);
+            }
+            particlesMesh.instanceMatrix.needsUpdate = true;
+        }
+        initParticles();
+
+        // --- Math (ERFC) ---
+        function erfc(x) {
+            const z = Math.abs(x);
+            const t = 1.0 / (1.0 + 0.5 * z);
+            const ans = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+            return x >= 0 ? ans : 2.0 - ans;
+        }
+
+        // --- Chart ---
+        const ctx = document.getElementById('diffusionChart').getContext('2d');
+        const numBins = 25;
+        const binWidth = CHANNEL_LENGTH / numBins;
+        const labels = Array.from({length: numBins}, (_, i) => (i * binWidth).toFixed(1));
+
+        const diffusionChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        type: 'line',
+                        label: 'Theoretical (erfc)',
+                        data: [],
+                        borderColor: '#fcb045',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.4,
+                        yAxisID: 'y'
+                    },
+                    {
+                        type: 'bar',
+                        label: 'Measured Particles',
+                        data: [],
+                        backgroundColor: 'rgba(47, 129, 247, 0.6)',
+                        barPercentage: 1.0,
+                        categoryPercentage: 1.0,
+                        yAxisID: 'y'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Distance x', color: '#aaa' },
+                        ticks: { color: '#888', maxTicksLimit: 10 },
+                        grid: { color: '#333' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 1.1,
+                        title: { display: true, text: 'Concentration N / N₀', color: '#aaa' },
+                        ticks: { color: '#888' },
+                        grid: { color: '#333' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: 'white' } }
+                }
+            }
+        });
+
+        // --- Loop ---
+        const clock = new THREE.Clock();
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const dt = clock.getDelta();
+            
+            if(isRunning) {
+                // Advance theoretical time by (dt * base_speed * steps)
+                simTime += (dt * 5) * PHYSICS_STEPS;
+            }
+
+            // --- 1. Physics Sub-stepping ---
+            // Run physics multiple times per frame for speed
+            let particlesInSource = 0;
+            const bins = new Array(numBins).fill(0);
+
+            for (let step = 0; step < PHYSICS_STEPS; step++) {
+                
+                // Reset counter only on the LAST step to collect data for render
+                if (step === PHYSICS_STEPS - 1) {
+                    particlesInSource = 0;
+                    for(let b=0; b<numBins; b++) bins[b] = 0;
+                }
+
+                for (let i = 0; i < PARTICLE_COUNT; i++) {
+                    const pos = positions[i];
+
+                    // Brownian Motion
+                    pos.x += (Math.random() - 0.5) * PARTICLE_SPEED_BASE;
+                    pos.y += (Math.random() - 0.5) * PARTICLE_SPEED_BASE;
+                    pos.z += (Math.random() - 0.5) * PARTICLE_SPEED_BASE;
+
+                    // Walls
+                    if (pos.y > CHANNEL_HEIGHT/2) pos.y = CHANNEL_HEIGHT/2 - 0.1;
+                    if (pos.y < -CHANNEL_HEIGHT/2) pos.y = -CHANNEL_HEIGHT/2 + 0.1;
+                    if (pos.z > CHANNEL_DEPTH/2) pos.z = CHANNEL_DEPTH/2 - 0.1;
+                    if (pos.z < -CHANNEL_DEPTH/2) pos.z = -CHANNEL_DEPTH/2 + 0.1;
+
+                    // Constant Source Condition
+                    if (pos.x < -RESERVOIR_LENGTH) pos.x = -0.1;
+                    if (pos.x > CHANNEL_LENGTH) pos.x = -Math.random() * RESERVOIR_LENGTH;
+
+                    // Data Collection (Only needed on last step for visualization)
+                    if (step === PHYSICS_STEPS - 1) {
+                        dummyObj.position.copy(pos);
+                        dummyObj.updateMatrix();
+                        particlesMesh.setMatrixAt(i, dummyObj.matrix); // Queue update
+
+                        if (pos.x < 0) {
+                            particlesInSource++;
+                        } else {
+                            const binIdx = Math.floor(pos.x / binWidth);
+                            if (binIdx >= 0 && binIdx < numBins) bins[binIdx]++;
+                        }
+                    }
+                }
+            }
+            
+            particlesMesh.instanceMatrix.needsUpdate = true;
+            controls.update();
+            renderer.render(scene, camera);
+
+            // --- 2. Update UI ---
+            updateLabel(document.getElementById('label-source'), new THREE.Vector3(-RESERVOIR_LENGTH/2, CHANNEL_HEIGHT/2 + 2, 0));
+            updateLabel(document.getElementById('label-wafer'), new THREE.Vector3(CHANNEL_LENGTH/2, CHANNEL_HEIGHT/2 + 2, 0));
+
+            // --- 3. Update Chart ---
+            const Dt = simTime * DIFFUSION_COEFF;
+            const theoreticalData = [];
+            
+            for(let j=0; j<numBins; j++) {
+                const x = (j * binWidth) + (binWidth/2);
+                const val = erfc(x / (2 * Math.sqrt(Dt + 0.1)));
+                theoreticalData.push(val);
+            }
+
+            // Normalize
+            const sourceDensity = particlesInSource / RESERVOIR_LENGTH; 
+            // Protect against divide by zero at start
+            const safeDensity = sourceDensity > 0 ? sourceDensity : 1;
+            
+            const normalizedBins = bins.map(count => (count / binWidth) / safeDensity);
+
+            diffusionChart.data.datasets[0].data = theoreticalData;
+            diffusionChart.data.datasets[1].data = normalizedBins;
+            diffusionChart.update('none');
+        }
+
+        function updateLabel(elem, vec) {
+            vec.project(camera);
+            const x = (vec.x * .5 + .5) * window.innerWidth;
+            const y = (-(vec.y * .5) + .5) * window.innerHeight;
+            elem.style.left = x + 'px';
+            elem.style.top = y + 'px';
+            elem.style.transform = 'translate(-50%, -50%)';
+        }
+
+        animate();
+
+        document.getElementById('reset-btn').addEventListener('click', () => { initParticles(); });
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
